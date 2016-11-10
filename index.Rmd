@@ -1,0 +1,117 @@
+---
+title: "Practical Machine Learning Course Project"
+author: "Fadhila AlFaraj"
+date: "November 10, 2016"
+output: html_document
+---
+
+##Synopsis 
+This analysis is to predict the manner for a group of enthusiasts on how well they exercise using data from accelerometers on the belt, forearm, arm, and dumbell of 6 people. Predicting using tree algorithm and random forest, it was found that random forest is more accurate. The data was split into 70% training and 30% testing and then quantified using the left validation data 
+
+##Data Processing 
+load both training and testing datasets 
+```{r}
+training <- read.csv("C:/Users/Fadhila/Desktop/Coursera/Data Science/Pactical Machine Learning/project/pml-training.csv")
+testing <- read.csv("C:/Users/Fadhila/Desktop/Coursera/Data Science/Pactical Machine Learning/project/pml-testing.csv")
+```
+
+required packages 
+
+```{r}
+library(lattice)
+library(ggplot2)
+library(caret)
+```
+ 
+##Data Spliting 
+70% of the training data to use in training the model and the remaining 30% to use for computing out-of-sample error 
+```{r}
+set.seed(33253)
+inTrain <- createDataPartition(training$classe, p=0.70, list = FALSE)
+trainData<- training[inTrain,]
+testData <- training[-inTrain,]
+```
+ 
+##Data Cleaning 
+
+looking at the data it has observations and variables with NA columns. So, we remove variables with near zero variability 
+```{r}
+nsv <- nearZeroVar(training)
+trainData <- trainData[,-nsv]
+testData <- testData[,-nsv]
+```
+ 
+Remove NA's  
+````{r}
+ReNA <- sapply(trainData, function(x) mean(is.na(x))) > 0.95
+trainData <- trainData[, ReNA==FALSE]
+testData <- testData[, ReNA==FALSE]
+```
+ 
+Remove variables with less predicting power for classe 
+
+```{r}
+trainData <- trainData[,-c(1:7)]
+testData <- testData[,-c(1:7)]
+```
+ 
+ 
+##Prediction Algorithms 
+Tree algorithm and Random Forest will be used; 
+
+##Tree Algorithm/Classification  
+using 10 k-fold cross validation $k$=10 will compute it using $trainControl$ function than set it in our $train$ model to save computing time. No variable transformation is necessary for non-linear models 
+```{r}
+library(rpart)
+library(e1071)
+model <- trainControl(method = "cv", number = 10)
+rpartmod <- train(classe ~., data = trainData, method = "rpart", trControl= model)
+rpartmod
+```
+ 
+Plotting the tree 
+```{r results="hide", message=FALSE, warning=FALSE}
+library(rattle)
+```
+
+```{r}
+library(rpart.plot)
+fancyRpartPlot(rpartmod$finalModel)
+```
+
+We train our prediction function and test how well our model will do in new datasets using $confusionMatrix$ function from $caret$ package 
+```{r}
+predictMD <- predict(rpartmod, testData)
+pred <- confusionMatrix(testData$classe, predictMD)
+
+```
+ 
+```{r}
+pred$overall[1]
+```
+The accuracy rate is 0.488. This makes the out-of-sample error rate is about 0.5. The prediction rate is not that good for $classe$ variable  
+
+##Random Forest 
+Using Random forest to see if the model will give better prediction than the tree classification 
+```{r results="hide", message=FALSE, warning=FALSE}
+library(randomForest)
+```
+
+```{r}
+RFmod <- randomForest(classe ~., data = trainData)
+RFmod
+```
+ 
+```{r} 
+predictRF <- predict(RFmod, testData)
+RFpred <- confusionMatrix(testData$classe, predictRF)
+```
+
+```{r}
+RFpred$overall[1]
+```
+ 
+Random forest accuracy rate is .995 makes the out-of-sample error about .005. Since it is better than the tree algorithm accuracy rate, we will use random forest for the prediction of our model 
+```{r}
+predict(RFmod, testing)
+```
